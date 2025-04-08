@@ -78,67 +78,6 @@ class TransformerEncoderLayerWithHooks(TransformerEncoderLayer):
 
         return src
 
-class RNN_Cell(nn.Module):
-    def __init__(self, n_inp, n_hid, n_ch=1, act='tanh', ksize=3, init='eye', freeze_rnn='no', freeze_encoder='no',
-                 solo_init='yes'):
-        super(RNN_Cell, self).__init__()
-        self.n_hid = n_hid
-        self.n_ch = n_ch
-        self.Wx = nn.Linear(n_inp, n_hid * n_ch)
-        self.Wy = nn.Conv1d(n_ch, n_ch, ksize, padding=ksize // 2, padding_mode='circular')
-
-        if solo_init == 'yes':
-            nn.init.zeros_(self.Wx.weight)
-            nn.init.zeros_(self.Wx.bias)
-            with torch.no_grad():
-                w = self.Wx.weight.view(n_ch, n_hid, n_inp)
-                w[:, 0] = 1.0
-        elif solo_init == 'no':
-            nn.init.normal_(self.Wx.weight, mean=0.0, std=0.001)
-        else:
-            raise NotImplementedError
-
-        if act == 'tanh':
-            self.act = nn.Tanh()
-        elif act == 'relu':
-            self.act = nn.ReLU()
-        elif act == 'ident':
-            self.act = nn.Identity()
-        else:
-            raise NotImplementedError
-
-        assert init in ['eye', 'fwd', 'rand']
-
-        if init == 'eye':
-            wts = torch.zeros(n_ch, n_ch, ksize)
-            nn.init.dirac_(wts)
-
-        elif init == 'fwd':
-            wts = torch.zeros(n_ch, n_ch, ksize)
-            nn.init.dirac_(wts)
-            wts = torch.roll(wts, 1, -1)
-
-        if init == 'eye' or init == 'fwd':
-            with torch.no_grad():
-                self.Wy.weight.copy_(wts)
-
-        if freeze_encoder == 'yes':
-            for param in self.Wx.parameters():
-                param.requires_grad = False
-        else:
-            assert freeze_encoder == 'no'
-
-        if freeze_rnn == 'yes':
-            for param in self.Wy.parameters():
-                param.requires_grad = False
-        else:
-            assert freeze_rnn == 'no'
-
-    def forward(self, x, hy):
-        hy = self.act(self.Wx(x) + self.Wy(hy.view(-1, self.n_ch, self.n_hid)).flatten(start_dim=1))
-        return hy
-
-
 class KernelNormalizedLinear(nn.Linear):
     def forward(self, input):
         normed_weight = torch.nn.functional.normalize(self.weight, p=2, dim=1)
@@ -221,18 +160,13 @@ class Potential(nn.Module):
         super(Potential,self).__init__()
 
         self.conv_z = nn.Parameter(torch.zeros(4,4,3,requires_grad=True))
-        #self.layer_x = nn.Sequential(
-        #    KernelNormalizedLinear(x_in, z_in),
-        #    nn.ReLU(True),
-        #    KernelNormalizedLinear(z_in, z_in),
-        #)
 
     def forward(self, z, x):
         conv_z = torch.nn.functional.normalize(self.conv_z, p=2, dim=2)
         z = z.reshape(z.size(0), 4, -1)
         Vz = torch.nn.functional.conv1d(input=z,weight=conv_z,bias=None,stride=1,padding=1)
         Vz = Vz.bmm(z.transpose(1, 2))
-        return Vz.sum(-1) #+ (x*z).sum(-1)
+        return Vz.sum(-1) 
 
 
 class LangevinAutoencoder(pl.LightningModule):
@@ -280,19 +214,7 @@ class LangevinAutoencoder(pl.LightningModule):
             hidden_size=hidden_size,
             bias=True,
         )
-        #RNN_Cell(n_inp=input_size,n_hid=hidden_size//7, n_ch=7)
-        #nn.GRUCell(
-        #    input_size=input_size,
-        #    hidden_size=hidden_size,
-        #    bias=True,
-        #)
-        #RNN_Cell(n_inp=input_size,n_hid=hidden_size)
-        #ClippedGRUCell(
-        #    input_size=input_size,
-        #    hidden_size=hidden_size,
-        #    clip_value = 200,
-        #    is_encoder= True
-        #)
+       
 
         # Instantiate linear mapping to initial Gaussians
         self.linear_z_means = nn.Linear(hidden_size, hidden_size)
@@ -301,21 +223,7 @@ class LangevinAutoencoder(pl.LightningModule):
         self.linear_v_means = nn.Linear(hidden_size, hidden_size)
         self.linear_v_logvar = nn.Linear(hidden_size, hidden_size)
 
-        # Instantiate GRU encoder
-        #self.decoder_z = nn.Sequential(
-        #    nn.Linear(hidden_size, hidden_size//2),
-        #    nn.ReLU(True),
-        #)
-        #self.decoder_v = nn.Sequential(
-        #    nn.Linear(hidden_size, hidden_size//2),
-        #    nn.ReLU(True),
-        #)
-        #self.decoder_hid = nn.Sequential(
-        #    nn.Linear(hidden_size, hidden_size),
-        #    nn.ReLU(True),
-        #)
         self.decoder = TransformerEncoderLayerWithHooks(d_model=hidden_size*3, nhead=2, dim_feedforward=512,dropout=dropout)
-        #self.decoder = TransformerEncoder(self.decoder_layer, num_layers=3)#TransformerEncoderLayer() #TransformerEncoderLayerWithHooks(d_model=hidden_size*3,nhead=8,dim_feedforward=512,dropout=dropout)
         # Instantiate Potential
         self.potential = Potential(z_in=hidden_size,x_in=input_size, dropout=dropout)
         # Instantiate linear readout
@@ -328,17 +236,14 @@ class LangevinAutoencoder(pl.LightningModule):
         #Damping rato of Langevin eq
         self.gamma = gamma
         self.step = 0.01
-        #Prior diffusion rates
-        #self.D = nn.Parameter(torch.ones(1, 1, requires_grad=True))
-        #linear model parameters
-        #self.regress_models = nn.Parameter(torch.zeros((1,11,output_size), requires_grad=True))
+       
         #Coordinated Dropout
         self.cd = CoordinatedDropout(cd_rate=cd_rate)
         #Sample Validation
         self.sv = SampleValidation(sv_rate=0.8,fwd_steps=fwd_steps,heldin_neurons=input_size)
         self.switch_epoch_l2 = 500.
         self.switch_epoch_kl = 500.
-        #self.enc_h0 = nn.Parameter(torch.zeros((1, hidden_size), requires_grad=True))
+     
 
     def reparameterize(self, mu, log_var, logvar=True):
 
@@ -401,25 +306,11 @@ class LangevinAutoencoder(pl.LightningModule):
             if t<obs_steps:
                 hidden = self.encoder(observ[:,t-1], hidden)
                 hidden = self.dropout(hidden)
-                #hidden = hidden.view(hidden.size(0), -1)
                 input = observ[:,t]
             else:
-                #spike_lst = 0
-                #samples = 50
-                #for i in range(samples):
-                #    spike_lst += torch.poisson(torch.exp(logrates[:,-1,:num_heldin]))
-                #spike_lst = spike_lst/samples
-                # A simple linear model predict r_i+1 give history 10 points
-                #lograte_t1 = logrates[:, -1, :num_heldin] + torch.mean(
-                #    logrates[:, -10:, :num_heldin] - logrates[:, -11:-1, :num_heldin], dim=1)
-                #spike_fwd = 0
-                #for i in range(samples):
-                #    spike_fwd += torch.poisson(torch.exp(lograte_t1))
-                #spike_fwd = spike_fwd / samples
                 hidden = self.encoder(observ[:,-1], hidden)
                 hidden = self.dropout(hidden)
-                #hidden = hidden.view(hidden.size(0), -1)
-                input = observ[:,-1] #spike_fwd
+                input = observ[:,-1] 
             z = z.clone().requires_grad_()
             U = self.potential(z, input)
             u_z = grad(U.sum(), z, create_graph=True)[0]
@@ -429,11 +320,6 @@ class LangevinAutoencoder(pl.LightningModule):
             #Probabilistic Step
             v = self.reparameterize((1-self.gamma)*v, math.sqrt(2 * self.gamma)*torch.ones_like(v), logvar=False)
             #Decode [Z,V,H]
-            #hidden_de = torch.cat([self.decoder_z(z), self.decoder_v(v),self.decoder_hid(hidden)], dim=1)
-            #hidden_de = self.decoder_hid(hidden)
-            #hidden_de = self.dropout(hidden_de)
-            #lograte_t = self.readout(hidden_de)
-            #logrates = torch.cat([logrates,lograte_t.unsqueeze(1)],dim=1)
             latents = torch.cat([latents, torch.cat([z,v,hidden],dim=1).unsqueeze(1)], dim=1)
             KL_loss += self.kl_gauss(v,2 * self.gamma * torch.ones_like(v), mean2=0.0, var2=0.1)#2 * self.D * t + 1.0)
         logrates = self.decoder(latents.transpose(0,1))
@@ -490,9 +376,7 @@ class LangevinAutoencoder(pl.LightningModule):
             "lr_scheduler": scheduler,
             "monitor": "hp_metric",
         }
-        #return optimizer
-        #scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
-        #return [optimizer], [scheduler]
+    
 
     def training_step(self, batch, batch_ix):
         """Computes, logs, and returns the loss.
@@ -515,43 +399,21 @@ class LangevinAutoencoder(pl.LightningModule):
         input_data, recon_data, behavior = batch
 
         cd_data, cd_mask = self.cd.process_batch(input_data)
-        #sv_data, sv_mask = self.sv.process_batch(recon_data)
 
         # Pass data through the model
-        #preds, _, KL_loss = self.forward(input_data, use_logrates=True)
         cd_preds, _, cd_KL_loss = self.forward(cd_data, use_logrates=True)
         # Compute the Poisson log-likelihood
         kl_ramp = (self.current_epoch) / (self.switch_epoch_kl)
         kl_ramp = 1e-1*torch.clamp(torch.tensor(kl_ramp), 0, 1)
 
         cd_nll_loss = nn.functional.poisson_nll_loss(cd_preds, recon_data, reduction='none')
-        #sv_nll_loss = nn.functional.poisson_nll_loss(preds, sv_data, reduction='none')
 
         cd_nll_loss = self.cd.process_losses(cd_nll_loss, cd_mask)
-        #sv_nll_loss = self.sv.process_losses(sv_nll_loss, sv_mask)
-        #nll_loss = nn.functional.poisson_nll_loss(preds, recon_data)
         loss =  cd_nll_loss.mean() + kl_ramp*(cd_KL_loss)
 
         self.log("train/loss", loss)
 
         return loss
-
-    #def linear_fit(self, logrates):
-    #    for t in range(logrates.size(1)):
-    #        if t < 10:
-    #            logrates_ar_t = logrates[:, t] + torch.sum(
-    #                self.regress_models[:, 1:t] * torch.poisson(torch.exp(logrates[:, 1:t])),
-    #                dim=1) + self.regress_models[:, 0]
-    #            if t == 0:
-    #                logrates_ar = logrates_ar_t.unsqueeze(1)
-    #            else:
-    #                logrates_ar = torch.cat([logrates_ar, logrates_ar_t],dim=1)
-    #        else:
-    #            logrates_ar_t = logrates[:, t] + torch.sum(
-    #                self.regress_models[:, 1:] * torch.poisson(torch.exp(logrates[:, t-10:t])),
-    #                dim=1) + self.regress_models[:, 0]
-    #            logrates_ar = torch.cat([logrates_ar, logrates_ar_t], dim=1)
-    #    return logrates_ar
 
     def validation_step(self, batch, batch_ix):
         """Computes, logs, and returns the loss.
