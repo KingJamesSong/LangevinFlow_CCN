@@ -42,11 +42,6 @@ def make_submission(model, trainer, save_path):
          #data = torch.cat([x, x], dim=1)
          logrates, latents,_ = model.forward(x.to(model.device), use_logrates=True)
          return logrates, latents
-    # Save latent trajectories
-    #latents =  torch.cat([model_fwd(batch[0])[1].detach().cpu() for batch in val_dataloader])
-    #latents = latents[:100, :, :]
-    #latents = np.array(latents.view(-1).numpy())
-    #text_save('/nfs/data_chaos/ysong/test_run/latents37.txt', latents)
     # Pass the batched data through the model
     train_rates, eval_rates = 0., 0.
     samples = 50
@@ -54,7 +49,6 @@ def make_submission(model, trainer, save_path):
         train_rates += torch.cat([model_fwd(batch[0])[0].detach().cpu() for batch in train_dataloader])
         eval_rates += torch.cat([model_fwd(batch[0])[0].detach().cpu() for batch in val_dataloader])
     train_rates, eval_rates = train_rates/samples, eval_rates/samples
-    #text_save('/nfs/data_chaos/ysong/test_run/lorentz_eval.txt', np.array(eval_rates.exp().view(-1).numpy()))
     train_rates, eval_rates = train_rates.exp().numpy(), eval_rates.exp().numpy()
     # Split model outputs for evaluation
     dataset_name = trainer.datamodule.hparams.dataset_name
@@ -95,16 +89,6 @@ def make_submission_lorentz(model, trainer, save_path):
     def model_fwd(x):
         logrates, latents, _ = model.forward(x.to(model.device), use_logrates=True)
         return logrates, latents
-    ## Save latent trajectories
-    #latents =  torch.cat([model_fwd(batch[0])[1].detach().cpu() for batch in val_dataloader])
-    #latents = np.array(latents.view(-1).numpy())
-    #text_save('/nfs/data_chaos/ysong/test_run/latents35.txt', latents)
-    #eval_spike = torch.cat([batch[0].cpu() for batch in val_dataloader])
-    #eval_spike = np.array(eval_spike.view(-1).numpy())
-    #text_save('/nfs/data_chaos/ysong/test_run/lorentz_spike.txt', eval_spike)
-    #eval_truth = torch.cat([batch[1].cpu() for batch in val_dataloader])
-    #eval_truth = np.array(eval_truth.view(-1).numpy())
-    #text_save('/nfs/data_chaos/ysong/test_run/lorentz_truth.txt', eval_truth)
     # Pass the batched data through the model
     train_rates, eval_rates = 0., 0.
     samples = 50
@@ -113,5 +97,4 @@ def make_submission_lorentz(model, trainer, save_path):
         eval_rates += torch.cat([model_fwd(batch[0])[0].detach().cpu() for batch in val_dataloader])
     train_rates, eval_rates = train_rates / samples, eval_rates / samples
     train_rates, eval_rates = train_rates.exp().detach().cpu(), eval_rates.exp().detach().cpu()
-    #text_save('/nfs/data_chaos/ysong/test_run/lorentz_eval.txt', np.array(eval_rates.view(-1).numpy()))
     return None
