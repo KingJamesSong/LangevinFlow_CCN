@@ -21,13 +21,13 @@ EVAL_TARGET_FILE = os.environ["EVAL_TARGET_FILE"]
 
 # Specify the dandi subpaths
 DANDI_SUBPATH = {
-    #"mc_maze": "/nfs/data_todi/ysong/000128/sub-Jenkins",
-    #"mc_rtt": "/nfs/data_todi/ysong/000129/sub-Indy",
-    #"area2_bump": "/nfs/data_todi/ysong/000127/sub-Han",
-    "dmfc_rsg": "/nfs/data_todi/ysong/000130/sub-Haydn",
-    #"mc_maze_large": "/nfs/data_todi/ysong/000138/sub-Jenkins",
-    #"mc_maze_medium": "/nfs/data_todi/ysong/000139/sub-Jenkins",
-    #"mc_maze_small": "/nfs/data_todi/ysong/000140/sub-Jenkins",
+    "mc_maze": os.path.join(PREP_HOME,"/000128/sub-Jenkins"),
+    "mc_rtt": os.path.join(PREP_HOME,"/000129/sub-Indy"),
+    "area2_bump": os.path.join(PREP_HOME,"/000127/sub-Han"),
+    "dmfc_rsg": os.path.join(PREP_HOME,"/000130/sub-Haydn"),
+    "mc_maze_large": os.path.join(PREP_HOME,"/000138/sub-Jenkins"),
+    "mc_maze_medium": os.path.join(PREP_HOME,"/000139/sub-Jenkins"),
+    "mc_maze_small": os.path.join(PREP_HOME,"/000140/sub-Jenkins"),
 }
 
 
