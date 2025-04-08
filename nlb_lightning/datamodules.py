@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 # Load the NLB environment variables
 dotenv.load_dotenv(override=True)
-PREP_HOME = "/nfs/data_todi/ysong/"#os.environ["PREP_HOME"]
+PREP_HOME = os.environ["PREP_HOME"]
 TRAIN_INPUT_FILE = os.environ["TRAIN_INPUT_FILE"]
 EVAL_INPUT_FILE = os.environ["EVAL_INPUT_FILE"]
 EVAL_TARGET_FILE = os.environ["EVAL_TARGET_FILE"]
