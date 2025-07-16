@@ -1,4 +1,4 @@
-# Langevin Flows for Modeling Neural Latent Dynamics
+# [Langevin Flows for Modeling Neural Latent Dynamics](https://arxiv.org/abs/2507.11531)
 
 
 # Usage
